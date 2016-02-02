@@ -17,6 +17,7 @@ import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.{DataFrame, Row, SQLContext}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
+
 import org.apache.spark.ml.Pipeline
 
 /**
@@ -117,20 +118,26 @@ object dataLoad {
   predictions.printSchema()
   val result = predictions.select("probability")
 
-  val probResult = result.map(row=>row(0)).map(row=>row.asInstanceOf[DenseVector]).map(row=>row(1))
+  val probResult = result.map(row=>row(0)).map(row=>row.asInstanceOf[DenseVector]).map(row=>row(1)).collect()
 //  val model = crossValidatorModel.bestModel
  // predictions.select("probability")
 
   ///########### submit the file
   val Id = testData.select("QuoteNumber")
-  val IdArray = Id.map(row=>row(0)).map(row=>row)
+  val IdArray = Id.map(row=>row(0)).map(row=>row.asInstanceOf[Int]).collect()
 
+  val submit = IdArray.zip(probResult)
+//  def mergeDataframe(df1:DataFrame,df2:DataFrame):DataFrame = {
 
-  def mergeDataframe(df1:DataFrame,df2:DataFrame):DataFrame = {
+  //}
+  val data = sc.parallelize(submit).toDF()
+  data.printSchema()
+  val data1 = data.withColumnRenamed("_1","QuoteNumber")
+  val data2 = data1.withColumnRenamed("_2","QuoteConversion_Flag")
+  data2.coalesce(1).write.format("com.databricks.spark.csv").option("header", "true").save("/Users/weizhili/Desktop/Spark-Finance/Output2/output.csv")
 
-  }
-
-
+  //case class rowPredict(QuoteNumber:Int,QuoteConversion_Flag:Double)
+ // val ds = submit.map(row=>Seq(rowPredict(row._1,row._2)))
 
 
 
